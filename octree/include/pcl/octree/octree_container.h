@@ -42,6 +42,7 @@
 #include <string.h>
 #include <vector>
 #include <cstddef>
+#include <set>
 
 #include <pcl/pcl_macros.h>
 
@@ -49,6 +50,11 @@ namespace pcl
 {
   namespace octree
   {
+    
+    //! Forward Declaration for DataT classes
+    template <typename PointT> class AveragePoint;
+    
+    
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /** \brief @b Octree container class that can serve as a base to construct own leaf node container classes.
      *  \author Julius Kammerl (julius@kammerl.de)
@@ -393,7 +399,134 @@ namespace pcl
         /** \brief Leaf node DataT vector. */
         std::vector<int> leafDataTVector_;
       };
-
+      
+      /** \brief @b Octree adjacency leaf container class - stores set of pointers to neighbors, number of points added, and a DataT value.
+       * \note This class implements a leaf node that stores pointers to neighboring leaves.
+       * \note This class also has a virtual computeData function, which is called by OctreePointCloudAdjacency::addPointsFromInputCloud.
+       * \note If you are not happy with the default data type (which is AveragePoint<PointInT>) and its behavior (averaging of XYZ,
+       * normal, and RGB fields), then you should implement your own and either:
+       *
+       * - make sure it has add() and compute() functions (like AveragePoint does)
+       *   or
+       * - make explicit instantiations of addPoint() and computeData() functions of this class (supervoxel_clustering.hpp for an example).
+       */
+      template<typename PointInT, typename DataT = AveragePoint<PointInT> >
+      class OctreeAdjacencyContainer : public OctreeContainerBase
+      {
+      public:
+        typedef std::set<OctreeAdjacencyContainer*> NeighborSetT;
+        //iterators to neighbors
+        typedef typename NeighborSetT::iterator iterator;
+        typedef typename NeighborSetT::const_iterator const_iterator;
+        inline iterator begin () { return (neighbors_.begin ()); }
+        inline iterator end ()   { return (neighbors_.end ()); }
+        inline const_iterator begin () const { return (neighbors_.begin ()); }
+        inline const_iterator end () const  { return (neighbors_.end ()); }
+        //size of neighbors
+        inline size_t size () const { return neighbors_.size (); }
+        //insert for neighbors
+        inline std::pair<iterator, bool> insert (OctreeAdjacencyContainer* neighbor) { return neighbors_.insert (neighbor); }
+        
+        /** \brief Class initialization. */
+        OctreeAdjacencyContainer () :
+        OctreeContainerBase ()
+        {
+          this->reset();       
+        }
+        
+        /** \brief Empty class deconstructor. */
+        virtual ~OctreeAdjacencyContainer ()
+        {
+        }
+        
+        /** \brief deep copy function */
+        virtual OctreeAdjacencyContainer *
+        deepCopy () const
+        {
+          OctreeAdjacencyContainer *new_container = new OctreeAdjacencyContainer;
+          new_container->setNeighbors (this->neighbors_);
+          new_container->setData (this->data_);
+          return new_container;
+        }
+        
+        /** \brief Add new point to container- this just counts points
+         * \note To actually store data in the leaves, need to specialize this
+         * for your point and data type as in supervoxel_clustering.hpp
+         * \param[in] new_point the new point to add  
+         */
+        void 
+        addPoint (const PointInT& new_point)
+        {
+          data_.add (new_point);
+        }
+        
+        /** \brief Function for working on data added. Base implementation does nothing 
+         * */
+        void
+        computeData ()
+        {
+          data_.compute ();
+        }
+        
+        /** \brief Clear the voxel centroid */
+        virtual void 
+        reset ()
+        {
+          neighbors_.clear ();
+          data_ = DataT ();
+        }
+        
+        /** \brief Add new neighbor to voxel.
+          * \param[in] neighbor the new neighbor to add  
+          */
+        void 
+        addNeighbor (OctreeAdjacencyContainer *neighbor)
+        {
+          neighbors_.insert (neighbor);
+        }
+        
+        /** \brief Remove neighbor from neighbor set.
+          * \param[in] neighbor the neighbor to remove
+          */
+        void 
+        removeNeighbor (OctreeAdjacencyContainer *neighbor)
+        {
+          neighbors_.erase (neighbor);
+        }
+        
+        /** \brief Returns the number of neighbors this leaf has
+          *  \returns number of neighbors
+          */
+        size_t 
+        getNumNeighbors () const
+        {
+          return neighbors_.size ();
+        }
+        
+        /** \brief Sets the whole neighbor set
+         * \param[in] neighbor_arg the new set
+         */
+        void
+        setNeighbors (const NeighborSetT &neighbor_arg)
+        {
+          neighbors_ = neighbor_arg;
+        }
+        
+        /** \brief Returns a reference to the data member to access it without copying */
+        DataT&
+        getData () { return data_; }
+        
+        /** \brief Sets the data member
+         *  \param[in] data_arg New value for data
+         */
+        void
+        setData (const DataT& data_arg) { data_ = data_arg;}
+        
+      protected:
+        NeighborSetT neighbors_;
+        DataT data_;
+      };
+      
   }
 }
 
