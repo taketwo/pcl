@@ -1683,9 +1683,9 @@ TEST (PCL, Octree_Pointcloud_Adjacency)
 
     OctreePointCloudAdjacency<PointXYZ> octree (resolution);
     octree.setInputCloud (cloudIn);
-    octree.addPointsFromInputCloud ();
+    octree.addPointsFromInputCloud (); 
       
-    OctreePointCloudAdjacencyContainer<PointXYZ> *leaf_container;
+    OctreeAdjacencyContainer<PointXYZ> *leaf_container;
     
     leaf_container = octree.getLeafContainerAtPoint (point);
     //Point should have 26 neighbors, plus itself

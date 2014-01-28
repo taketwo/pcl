@@ -45,70 +45,27 @@ namespace pcl
 {
   namespace octree
   {
-    /** \brief @b Octree pointcloud density leaf node class
-      * \note This class implements a leaf node that counts the amount of points which fall into its voxel space.
-      * \author Julius Kammerl (julius@kammerl.de)
-      */
-    class OctreePointCloudDensityContainer : public OctreeContainerBase
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /** \brief Point Density class wrapper maintained for compatibility
+     */
+    class OctreePointCloudDensityContainer : public OctreeLeafContainer<int, CounterAccumulator> 
     {
-      public:
-        /** \brief Class initialization. */
-        OctreePointCloudDensityContainer () : point_counter_ (0)
-        {
-        }
-
-        /** \brief Empty class deconstructor. */
-        virtual ~OctreePointCloudDensityContainer ()
-        {
-        }
-
-        /** \brief deep copy function */
-        virtual OctreePointCloudDensityContainer *
-        deepCopy () const
-        {
-          return (new OctreePointCloudDensityContainer (*this));
-        }
-
-        /** \brief Equal comparison operator
-         * \param[in] other OctreePointCloudDensityContainer to compare with
-         */
-        virtual bool operator==(const OctreeContainerBase& other) const
-        {
-          const OctreePointCloudDensityContainer* otherContainer =
-              dynamic_cast<const OctreePointCloudDensityContainer*>(&other);
-
-          return (this->point_counter_==otherContainer->point_counter_);
-        }
-
-        /** \brief Read input data. Only an internal counter is increased.
-          */
-        void
-        addPointIndex (int)
-        {
-          point_counter_++;
-        }
-
-        /** \brief Return point counter.
-          * \return Amount of points
-          */
-        unsigned int
-        getPointCounter ()
-        {
-          return (point_counter_);
-        }
-
-        /** \brief Reset leaf node. */
-        virtual void
-        reset ()
-        {
-          point_counter_ = 0;
-        }
-
-      private:
-        unsigned int point_counter_;
-
+    public:
+      OctreePointCloudDensityContainer ():
+      OctreeLeafContainer<int, CounterAccumulator> ()
+      {   
+      }
+      
+      /** \brief Template function which drops the templated point parameter */
+      template <typename PointT>
+      void
+      insert (int index_arg, const PointT&)
+      {
+        OctreeLeafContainer<int, CounterAccumulator>::insert (index_arg, -1);
+      }
+      
     };
-
+    
     /** \brief @b Octree pointcloud density class
       * \note This class generate an octrees from a point cloud (zero-copy). Only the amount of points that fall into the leaf node voxel are stored.
       * \note The octree pointcloud is initialized with its voxel resolution. Its bounding box is automatically adjusted or can be predefined.
@@ -148,7 +105,7 @@ namespace pcl
           OctreePointCloudDensityContainer* leaf = this->findLeafAtPoint (point_arg);
 
           if (leaf)
-            point_count = leaf->getPointCounter ();
+            point_count = leaf->size ();
 
           return (point_count);
         }

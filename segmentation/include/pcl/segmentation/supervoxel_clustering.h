@@ -165,7 +165,7 @@ namespace pcl
           EIGEN_MAKE_ALIGNED_OPERATOR_NEW
       };
       
-      typedef pcl::octree::OctreeAdjacencyContainer<PointT, VoxelData> LeafContainerT;
+      typedef pcl::octree::OctreeAdjacencyContainer<PointT, pcl::octree::AveragingAccumulator, VoxelData> LeafContainerT;
       typedef std::vector <LeafContainerT*> LeafVectorT;
       
       typedef typename pcl::PointCloud<PointT> PointCloudT;

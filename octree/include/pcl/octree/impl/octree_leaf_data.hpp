@@ -17,7 +17,7 @@ namespace pcl
     * average and retrieve it. */
     
     template <typename T>
-    struct accumulator { void add (const T& t) { }; void get (T& t, size_t n) { }; };
+    struct accumulator { void add (const T&) { }; void get (T&, size_t) const { }; };
     
     /* xyz_accumulator computes the sum of x, y, and z fields of the points that
     * are added to it. It has two versions, one for the point types that
@@ -32,7 +32,7 @@ namespace pcl
     {
       xyz_accumulator () : xyz (Eigen::Vector3f::Zero ()) { }
       void add (const T& t) { xyz += t.getVector3fMap (); }
-      void get (T& t, size_t n) { t.getVector3fMap () = xyz / n; }
+      void get (T& t, size_t n) const { t.getVector3fMap () = xyz / n; } 
       Eigen::Vector3f xyz;
     };
     
@@ -51,7 +51,7 @@ namespace pcl
         normal += t.getNormalVector4fMap ();
         curvature += t.curvature;
       }
-      void get (T& t, size_t n)
+      void get (T& t, size_t n) const
       {
         t.getNormalVector4fMap () = normal / n;
         t.getNormalVector4fMap ().normalize ();
@@ -76,7 +76,7 @@ namespace pcl
         g += static_cast<float> (t.g);
         b += static_cast<float> (t.b);
       }
-      void get (T& t, size_t n)
+      void get (T& t, size_t n) const
       {
         t.rgba = static_cast<uint32_t> (r / n) << 16 |
         static_cast<uint32_t> (g / n) <<  8 |
@@ -87,3 +87,6 @@ namespace pcl
     
   }
 }
+
+
+#endif

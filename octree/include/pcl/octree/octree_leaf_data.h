@@ -43,18 +43,152 @@ namespace pcl
 {
   namespace octree
   {
+    /** \brief This base accumulator policy does nothing */
+    template <typename PointT>
+    class NullAccumulator
+    {
+    public:
+      NullAccumulator ()
+      {
+      }
+      
+      virtual ~NullAccumulator ()
+      {
+      }
+      
+      size_t
+      size () const
+      {
+        return 0;
+      }
+      
+      /** Empty insert, does nothing */
+      virtual void 
+      insert (int, const PointT&)
+      {
+      }
+      
+      /** Reset does nothing */
+      virtual void 
+      reset ()
+      {
+      }
+      
+      virtual int
+      index () const
+      {
+        return -1;
+      }
+      
+      virtual void
+      value (PointT&) const
+      {
+      }
+    };
+    
+    /** \brief The Null accumulator policy simply stores the last point and index given to it */
+    template <typename PointT>
+    class LastAccumulator : public NullAccumulator<PointT>
+    {
+    public:
+      LastAccumulator ():
+      last_index_ (-1)
+      {
+      }
+      
+      ~LastAccumulator ()
+      {
+      }
+
+      /** \brief Retrieve the last point
+       */
+      void
+      value (PointT& point_arg) const
+      {
+        point_arg = last_value_;
+      }
+      
+      /** \brief Retrieve the last index
+       */
+      int 
+      index () const
+      {
+        return last_index_;
+      }
+      
+      size_t
+      size () const
+      {
+        return 1;
+      }
+      
+      /** Add a new point or value. */
+      void 
+      insert (int index_arg, const PointT &point_arg)
+      {
+        last_value_ = point_arg;
+        last_index_ = index_arg;
+      }
+      
+      virtual void 
+      reset ()
+      {
+        last_value_ = PointT ();
+        last_index_ = -1;
+      }
+      
+    protected:
+      PointT last_value_;
+      int last_index_;
+    };
+    
+    /** \brief The counter accumulator policy simply stores the number of values inserted into it */
+    template <typename PointT>
+    class CounterAccumulator : public NullAccumulator<PointT>
+    {
+    public:
+      CounterAccumulator ()
+      {
+      }
+      
+      ~CounterAccumulator ()
+      {
+      }
+      
+      size_t
+      size () const
+      {
+        return counter_;
+      }
+      
+      /** Add a new point or value. */
+      void 
+      insert (int, const PointT &)
+      {
+        ++counter_;
+      }
+      
+      virtual void 
+      reset ()
+      {
+        counter_ = 0;
+      }
+      
+    protected:
+      int counter_;
+    };
     
     /** \brief A generic class that computes the average of points fed to it.
      * 
-     * After all the points that have to be averaged are input with add(), the
+     * After all the points that have to be averaged are input with insert(), the
      * user should call compute(). At this point the average is computed, and
-     * can be then retrieved using the only public function of the class, cast
-     * operator to PointT.
+     * can be then retrieved using the cast operator to PointT. If compute has not
+     * been invoked, the cast will invoke it.
      *
      * \code
-     * AveragePoint<pcl::PointXYZ> avg1;
-     * avg1.add (pcl::PointXYZ (1, 2, 3);
-     * avg1.add (pcl::PointXYZ (5, 6, 7);
+     * AveragingAccumulator<pcl::PointXYZ> avg1;
+     * avg1.insert (pcl::PointXYZ (1, 2, 3);
+     * avg1.insert (pcl::PointXYZ (5, 6, 7);
      * avg1.compute ();
      * pcl::PointXYZ result = avg1;
      * // result.x == 3, result.y == 4, result.z == 5
@@ -71,58 +205,120 @@ namespace pcl
      * point type. Of course, each of the field averages is computed only if
      * the point type has the corresponding field. */
     template <typename PointT>
-    class AveragePoint
+    class AveragingAccumulator : public NullAccumulator<PointT>
     {
       
     public:
       
-      AveragePoint ()
+      AveragingAccumulator ()
       : num_points_ (0)
       {
       }
       
-      /** Retrieve the computed average point. */
-      operator PointT ()
+      ~AveragingAccumulator ()
       {
-        return average_point_;
+      }
+      
+      /** \brief Get the number of points that have been inserted */
+      size_t
+      size () const
+      {
+        return num_points_;
+      }
+      
+      /** \brief Retrieve the computed average point.
+        * \note By default will invoke compute () if it has not been called yet
+        */
+      void 
+      value (PointT& point_arg) const
+      {
+        xyz_.get (point_arg, num_points_);
+        normal_.get (point_arg, num_points_);
+        color_.get (point_arg, num_points_);
       }
       
       /** Add a new point. */
-      void add (const PointT& pt)
+      void 
+      insert (int, const PointT& point_arg)
       {
         ++num_points_;
-        xyz_.add (pt);
-        normal_.add (pt);
-        color_.add (pt);
+        xyz_.add (point_arg);
+        normal_.add (point_arg);
+        color_.add (point_arg);
       }
       
-      /** Compute the average of the previously added points. */
-      void compute ()
+      virtual void 
+      reset ()
       {
-        if (num_points_)
-        {
-          xyz_.get (average_point_, num_points_);
-          normal_.get (average_point_, num_points_);
-          color_.get (average_point_, num_points_);
-        }
+        xyz_ = detail::xyz_accumulator<PointT> ();
+        normal_ = detail::normal_accumulator<PointT> ();
+        color_ = detail::color_accumulator<PointT> ();
+        num_points_ = 0;
       }
       
-    private:
+    protected:
       detail::xyz_accumulator<PointT> xyz_;
       detail::normal_accumulator<PointT> normal_;
       detail::color_accumulator<PointT> color_;
       
       size_t num_points_;
       
-      PointT average_point_;
-      
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-      
     };
-    
+      
+    template <typename PointT>
+    class IndexVectorAccumulator : public NullAccumulator<PointT>
+    {
+    public:
+      IndexVectorAccumulator ()
+      {
+      }
+      
+      ~IndexVectorAccumulator ()
+      {
+      }
+      
+      /** \brief Get the number of elements that have been inserted */
+      size_t
+      size () const
+      {
+        return indices_.size ();
+      }
+          
+      /** Add a new point. */
+      void 
+      insert (int index_arg, const PointT&)
+      {
+        indices_.push_back (index_arg);
+      }
+      
+      virtual void 
+      reset ()
+      {
+        indices_.clear ();
+      }
+      
+      /** \brief Returns the indices vector
+       */
+      const std::vector<int>&
+      getPointIndicesVector () const
+      {
+        return indices_;
+      }
+      
+      /** \brief Appends the indices vector to the input vector
+        * \param[in] data_vector_arg Vector to append the indices to
+        */
+      void
+      getPointIndices (std::vector<int>& data_vector_arg) const
+      {
+        data_vector_arg.insert (data_vector_arg.end (), indices_.begin (), indices_.end ());
+      }
+      
+    protected:
+      std::vector<int> indices_;
+    };
   }
-  
-  
 }
 
 #endif //PCL_OCTREE_LEAF_DATA_H_
