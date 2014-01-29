@@ -58,13 +58,21 @@ namespace pcl
      *  \endcode
      *  But instead we use a wrapper class for compatibility
      */
-    template <typename PointT>
-    class OctreePointCloudVoxelCentroidContainer : public OctreeLeafContainer<PointT, AveragingAccumulator>
+    template <typename PointT,
+              typename OctreeDataT = EmptyData,
+              typename UserDataT = EmptyData>
+    class OctreePointCloudVoxelCentroidContainer
+      : public OctreeLeafContainer<OctreeDataT,
+                                   AveragingAccumulator<PointT>,
+                                   UserDataT>
     {
+
+      typedef OctreeLeafContainer<OctreeDataT, AveragingAccumulator<PointT>, UserDataT> Base;
+
     public:
-      OctreePointCloudVoxelCentroidContainer ():
-      OctreeLeafContainer<PointT, AveragingAccumulator> ()
-      {   
+      OctreePointCloudVoxelCentroidContainer ()
+      : Base ()
+      {
       }
       
       ~OctreePointCloudVoxelCentroidContainer ()
@@ -85,7 +93,7 @@ namespace pcl
     */
     template<typename PointT,
              typename LeafContainerT = OctreePointCloudVoxelCentroidContainer<PointT> ,
-             typename BranchContainerT = OctreeContainerEmpty >
+             typename BranchContainerT = OctreeContainerEmpty<> >
     class OctreePointCloudVoxelCentroid : public OctreePointCloud<PointT, LeafContainerT, BranchContainerT>
     {
       public:

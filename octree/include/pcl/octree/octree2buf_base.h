@@ -223,7 +223,7 @@ namespace pcl
      * \author Julius Kammerl (julius@kammerl.de)
      */
     template<typename LeafContainerT = int,
-             typename BranchContainerT = OctreeContainerEmpty >
+             typename BranchContainerT = OctreeContainerEmpty<> >
     class Octree2BufBase
     {
 

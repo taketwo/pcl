@@ -55,9 +55,10 @@ namespace pcl
      *  \author Julius Kammerl (julius@kammerl.de)
      */
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    template<typename PointT, typename LeafContainerT = OctreeContainerPointIndex,
-        typename BranchContainerT = OctreeContainerEmpty,
-        typename OctreeT = OctreeBase<LeafContainerT, BranchContainerT> >
+    template<typename PointT,
+             typename LeafContainerT = OctreeContainerPointIndex<>,
+             typename BranchContainerT = OctreeContainerEmpty<>,
+             typename OctreeT = OctreeBase<LeafContainerT, BranchContainerT> >
 
     class OctreePointCloudSinglePoint : public OctreePointCloud<PointT, LeafContainerT,
         BranchContainerT, OctreeT>

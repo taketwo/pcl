@@ -52,8 +52,8 @@ namespace pcl
   namespace octree
   {
     /** \brief Empty Data Type */
-    class EmptyDataT {};
-    
+    class EmptyData {};
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /** \brief @b Octree container class that can serve as a base to construct own leaf node container classes.
      *  The following should work:
@@ -66,85 +66,118 @@ namespace pcl
      * // result.x == 3, result.y == 4, result.z == 5
      * \endcode
      */
-    template<typename PointT, template<class> class AccumulatorPolicy = AveragingAccumulator, typename DataT = EmptyDataT >
-    class OctreeLeafContainer : public AccumulatorPolicy<PointT>
+    template <typename OctreeDataT = EmptyData,
+              typename LeafDataT = NullAccumulator,
+              typename UserDataT = EmptyData >
+    class OctreeLeafContainer
     {
-    public:
-      using typename AccumulatorPolicy<PointT>::insert;
-      using typename AccumulatorPolicy<PointT>::size;
-      using typename AccumulatorPolicy<PointT>::index;
-      using typename AccumulatorPolicy<PointT>::value;
-      
-      /** \brief Empty constructor. */
-      OctreeLeafContainer ()
-      {
-      }
 
-      /** \brief Empty constructor. */
-      OctreeLeafContainer (const OctreeLeafContainer&)
-      {
-      }
+      public:
 
-      /** \brief Empty deconstructor. */
-      virtual
-      ~OctreeLeafContainer ()
-      {
-      }
-      
-      /** \brief Deep copy of leaf - copies all internal data */
-      virtual OctreeLeafContainer *
-      deepCopy () const
-      {
-        OctreeLeafContainer *new_container = new OctreeLeafContainer;
-        new_container->data_ = this->data_;
-        return new_container;
-      }
-      
-      /** \brief Equal comparison operator - compares indices
-        * \note value comparison would make more sense, but this maintains compatibility
-        *  \param[in] other OctreeLeafContainer to compare with
-        */
-      virtual bool
-      operator== (const OctreeLeafContainer& other) const
-      {
-        return (this->index () == other.index ());
-      }
+        /** \brief Empty constructor. */
+        OctreeLeafContainer ()
+        {
+        }
 
-      /** \brief Inequal comparison operator
-       * \param[in] other OctreeLeafContainer to compare with
-       */
-      bool
-      operator!= (const OctreeLeafContainer& other) const
-      {
-        return (!operator== (other));
-      }
-      
-      /** \brief Reset the leaf node (sets data and accumulator to DataT and AccumulatorT constructors) */
-      virtual void
-      reset ()
-      {
-        data_ = DataT ();
-        AccumulatorPolicy<PointT>::reset ();
-      }
-      
-      /** \brief Returns reference to the internal data member
-       */
-      DataT &
-      getData ()
-      {
-        return data_;
-      }
-      
-      /** DEPRECATED
-       * \brief This is included to preserve interface 
-       * \note Use size() instead
-       */
-      size_t
-      getSize () const
-      {
-        return this->size ();
-      }
-      
+        /** \brief Copy constructor. */
+        OctreeLeafContainer (const OctreeLeafContainer&)
+        {
+          // TODO: do we need this?
+        }
+
+        /** \brief Empty deconstructor. */
+        virtual
+        ~OctreeLeafContainer ()
+        {
+        }
+
+        template <typename PointT> void
+        insert (int index_arg, const PointT& point)
+        {
+          AccumulatorTraits<LeafDataT>::insert (leaf_data_, index_arg, point);
+        }
+
+        /** \brief Deep copy of leaf - copies all internal data */
+        virtual OctreeLeafContainer*
+        deepCopy () const
+        {
+          OctreeLeafContainer* new_container = new OctreeLeafContainer;
+          new_container->octree_data_ = octree_data_;
+          new_container->leaf_data_ = leaf_data_;
+          new_container->user_data_ = user_data_;
+          return new_container;
+        }
+
+        /** \brief Equal comparison operator - compares indices
+          * \note value comparison would make more sense, but this maintains compatibility
+          * \param[in] other OctreeLeafContainer to compare with
+          *
+          * TODO: does this make any sense? What about if leaf data does not
+          * store indices? What about user data, maybe it makes sense to compare
+          * it instead?
+          *
+          */
+        virtual bool
+        operator== (const OctreeLeafContainer&) const
+        {
+          // TODO: commented out because we do not want to strictly require
+          // that leaf data has index() function.
+          //return (this->index () == other.index ());
+          return false;
+        }
+
+        /** \brief Inequal comparison operator
+          * \param[in] other OctreeLeafContainer to compare with
+          */
+        bool
+        operator!= (const OctreeLeafContainer& other) const
+        {
+          return (!operator== (other));
+        }
+
+        /** \brief Reset the leaf node (sets data and accumulator to DataT and AccumulatorT constructors) */
+        virtual void
+        reset ()
+        {
+          // TODO: there used to be a call to reset() function. This puts
+          // unnecessary requirement on the leaf data class. Any cons for just
+          // default-constructing a new one?
+          octree_data_ = OctreeDataT ();
+          leaf_data_ = LeafDataT ();
+          user_data_ = UserDataT ();
+        }
+
+        /** \brief Returns reference to the internal user data member
+         */
+        UserDataT&
+        getUserData ()
+        {
+          return user_data_;
+        }
+
+        OctreeDataT&
+        getOctreeData ()
+        {
+          return octree_data_;
+        }
+
+        LeafDataT&
+        getLeafData ()
+        {
+          return leaf_data_;
+        }
+
+        /** DEPRECATED
+         * \brief This is included to preserve interface
+         * \note Use size() instead
+         */
+        size_t
+        getSize () const
+        {
+          //return this->size ();
+          return 0;
+        }
+
       /** DEPRECATED This is maintained because of octree_pointcloud.hpp:521 TODO Investigate...
        * \brief Empty getPointIndices implementation as this leaf node does not store any data. \
        */
@@ -152,10 +185,13 @@ namespace pcl
       getPointIndices (std::vector<int>&) const
       {
       }
+
     protected:
-      DataT data_;
+      OctreeDataT octree_data_;
+      LeafDataT leaf_data_;
+      UserDataT user_data_;
     };
-      
+
       /** \brief @b Octree adjacency leaf container class - stores set of pointers to neighbors, number of points added, and a DataT value.
        * \note This class implements a leaf node that stores pointers to neighboring leaves.
        * \note This class also has a virtual computeData function, which is called by OctreePointCloudAdjacency::addPointsFromInputCloud.
@@ -166,70 +202,50 @@ namespace pcl
        *   or
        * - make explicit instantiations of addPoint() and computeData() functions of this class (supervoxel_clustering.hpp for an example).
        */
-      template<typename PointT, template<class> class AccumulatorPolicy = AveragingAccumulator, typename DataT = EmptyDataT >
-      class OctreeAdjacencyContainer : public OctreeLeafContainer<PointT, AccumulatorPolicy, DataT>
+
+
+      class OctreeAdjacencyData
       {
       public:
-        typedef std::set<OctreeAdjacencyContainer*> NeighborSetT;
-        typedef OctreeLeafContainer<PointT, AccumulatorPolicy, DataT> OctreeLeafContainerT;
+        typedef std::set<OctreeAdjacencyData*> NeighborSetT;
         /** Iterator for neighbors of this leaf */
-        typedef typename NeighborSetT::iterator iterator;
-        typedef typename NeighborSetT::const_iterator const_iterator;
+        typedef NeighborSetT::iterator iterator;
+        typedef NeighborSetT::const_iterator const_iterator;
         inline iterator begin () { return (neighbors_.begin ()); }
         inline iterator end ()   { return (neighbors_.end ()); }
         inline const_iterator begin () const { return (neighbors_.begin ()); }
         inline const_iterator end () const  { return (neighbors_.end ()); }
-        
+
         /** Returns the number of neighbors this leaf has */
         inline size_t size () const { return neighbors_.size (); }
-        
-        /** \brief Class initialization. */
-        OctreeAdjacencyContainer ():
-        OctreeLeafContainer<PointT, AccumulatorPolicy, DataT> ()
-        {   
-        }
-        
-        /** \brief Empty class deconstructor. */
-        virtual ~OctreeAdjacencyContainer ()
-        {
-        }
-        
+
         /** \brief Deep copy of leaf - copies all internal data */
-        virtual OctreeAdjacencyContainer *
+        virtual OctreeAdjacencyData *
         deepCopy () const
         {
-          OctreeAdjacencyContainer *new_container = new OctreeAdjacencyContainer;
-          new_container->neighbors_ = this->neighbors_;
-          new_container->data_ = this->data_;
-          return new_container;
+          OctreeAdjacencyData *new_data = new OctreeAdjacencyData;
+          new_data->neighbors_ = this->neighbors_;
+          return new_data;
         }
-        
-        /** \brief Clear the voxel centroid */
-        virtual void 
-        reset ()
-        {
-          OctreeLeafContainerT::reset ();
-          neighbors_.clear ();
-        }
-        
+
         /** \brief Add new neighbor to voxel.
-          * \param[in] neighbor the new neighbor to add  
+          * \param[in] neighbor the new neighbor to add
           */
-        void 
-        addNeighbor (OctreeAdjacencyContainer *neighbor)
+        void
+        addNeighbor (OctreeAdjacencyData *neighbor)
         {
           neighbors_.insert (neighbor);
         }
-        
+
         /** \brief Remove neighbor from neighbor set.
           * \param[in] neighbor the neighbor to remove
           */
-        void 
-        removeNeighbor (OctreeAdjacencyContainer *neighbor)
+        void
+        removeNeighbor (OctreeAdjacencyData *neighbor)
         {
           neighbors_.erase (neighbor);
         }
-        
+
         /** \brief Sets the whole neighbor set
          * \param[in] neighbor_arg the new set
          */
@@ -238,154 +254,76 @@ namespace pcl
         {
           neighbors_ = neighbor_arg;
         }
-        
+
       protected:
         NeighborSetT neighbors_;
       };
-      
+
       //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
       /** \brief Simple wrapper class to maintain compatibility with old container type which didn't template point type
        * But we use a wrapper class instead for compatibility
        */
-      class OctreeContainerPointIndices : public OctreeLeafContainer<int, IndexVectorAccumulator>
+      template <typename OctreeDataT = EmptyData,
+                typename UserDataT = EmptyData>
+      class OctreeContainerPointIndices : public OctreeLeafContainer<OctreeDataT, IndexVectorAccumulator, UserDataT>
       {
-      public:
-        using OctreeLeafContainer<int, IndexVectorAccumulator>::getPointIndices;
-        using OctreeLeafContainer<int, IndexVectorAccumulator>::getPointIndicesVector;
-        
-        OctreeContainerPointIndices ():
-        OctreeLeafContainer<int, IndexVectorAccumulator> ()
-        {   
-        }
-        
-        /** \brief Template function which drops the templated point parameter */
-        template <typename PointT>
-        void
-        insert (int index_arg, const PointT& temp)
-        {
-          OctreeLeafContainer<int, IndexVectorAccumulator>::insert (index_arg, 0);
-        }
+
+          typedef OctreeLeafContainer<OctreeDataT, IndexVectorAccumulator, UserDataT> Base;
+
+        public:
+
+          OctreeContainerPointIndices ()
+          : Base ()
+          {
+          }
+
+          void
+          getPointIndices (std::vector<int>& indices) const
+          {
+            Base::leaf_data_.value (indices);
+          }
+
       };
-      
+
       //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
       /** \brief Point Index class wrapper maintained for compatibility
        */
-      class OctreeContainerPointIndex : public OctreeLeafContainer<int, LastAccumulator>
+      template <typename OctreeDataT = EmptyData,
+                typename UserDataT = EmptyData>
+      class OctreeContainerPointIndex : public OctreeLeafContainer<OctreeDataT, LastIndexAccumulator, UserDataT>
       {
-      public:
-        OctreeContainerPointIndex ():
-        OctreeLeafContainer<int, LastAccumulator> ()
-        {   
-        }
-        
-        /** \brief Template function which drops the templated point parameter */
-        template <typename PointT>
-        void
-        insert (int index_arg, const PointT&)
-        {
-          OctreeLeafContainer<int, LastAccumulator>::insert (index_arg, -1);
-        }
-        
+
+          typedef OctreeLeafContainer<OctreeDataT, LastIndexAccumulator, UserDataT> Base;
+
+        public:
+
+          OctreeContainerPointIndex ()
+          : Base ()
+          {
+          }
+
       };
-      
+
       //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
       /** \brief @b Octree container class that does not store any information.
        * \note Can be used for occupancy trees that are used for checking only the existence of leaf nodes in the tree
        */
-      class OctreeContainerEmpty
+      template <typename OctreeDataT = EmptyData,
+                typename UserDataT = EmptyData>
+      class OctreeContainerEmpty : public OctreeLeafContainer<OctreeDataT, NullAccumulator, UserDataT>
       {
-      public:
-        /** \brief Empty constructor. */
-        OctreeContainerEmpty ()
-        {
-        }
-        
-        /** \brief Empty constructor. */
-        OctreeContainerEmpty (const OctreeContainerEmpty&) 
-        {
-        }
-        
-        /** \brief Empty deconstructor. */
-        virtual
-        ~OctreeContainerEmpty ()
-        {
-        }
-        
-        /** \brief Octree deep copy method */
-        virtual OctreeContainerEmpty *
-        deepCopy () const
-        {
-          return (new OctreeContainerEmpty (*this));
-        }
-        
-        /** \brief Abstract get size of container (number of DataT objects)
-         * \return number of DataT elements in leaf node container.
-         */
-        virtual size_t
-        getSize () const
-        {
-          return 0;
-        }
-        
-        virtual size_t
-        size () const
-        {
-          return 0;
-        }
-        
-        /** \brief Abstract reset leaf node implementation. */
-        virtual void
-        reset ()
-        {
-        }
-        
-        /** \brief Equal comparison operator
-         */
-        virtual bool
-        operator== (const OctreeContainerEmpty&) const
-        {
-          return false;
-        }
-        
-        /** \brief Inequal comparison operator
-         * \param[in] other OctreeContainerBase to compare with
-         */
-        bool
-        operator!= (const OctreeContainerEmpty& other) const
-        {
-          return (!operator== (other));
-        }
-        
-        /** \brief Empty addPointIndex implementation. This leaf node does not store any point indices.
-         */
-        void
-        addPointIndex (int)
-        {
-        }
-        
-        /** \brief Empty getPointIndex implementation as this leaf node does not store any point indices.
-         */
-        int
-        getPointIndex () const
-        {
-          return -1;
-        }
-        
-        /** \brief Empty getPointIndices implementation as this leaf node does not store any data. \
-         */
-        void
-        getPointIndices (std::vector<int>&) const
-        {
-        }
-        
-        template <typename PointT>
-        void 
-        insert (int, const PointT&)
-        {
-        }
+
+          typedef OctreeLeafContainer<OctreeDataT, NullAccumulator, UserDataT> Base;
+
+        public:
+
+          OctreeContainerEmpty ()
+          : Base ()
+          {
+          }
+
       };
-      
-      
+
   }
 }
 

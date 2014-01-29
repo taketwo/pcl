@@ -43,61 +43,20 @@ namespace pcl
 {
   namespace octree
   {
+
     /** \brief This base accumulator policy does nothing */
-    template <typename PointT>
     class NullAccumulator
     {
-    public:
-      NullAccumulator ()
-      {
-      }
-      
-      virtual ~NullAccumulator ()
-      {
-      }
-      
-      size_t
-      size () const
-      {
-        return 0;
-      }
-      
-      /** Empty insert, does nothing */
-      virtual void 
-      insert (int, const PointT&)
-      {
-      }
-      
-      /** Reset does nothing */
-      virtual void 
-      reset ()
-      {
-      }
-      
-      virtual int
-      index () const
-      {
-        return -1;
-      }
-      
-      virtual void
-      value (PointT&) const
-      {
-      }
     };
-    
+
     /** \brief The Null accumulator policy simply stores the last point and index given to it */
     template <typename PointT>
-    class LastAccumulator : public NullAccumulator<PointT>
+    class LastPointAccumulator
     {
     public:
-      LastAccumulator ():
-      last_index_ (-1)
+      LastPointAccumulator ()
       {
-      }
-      
-      ~LastAccumulator ()
-      {
+        reset ();
       }
 
       /** \brief Retrieve the last point
@@ -107,52 +66,65 @@ namespace pcl
       {
         point_arg = last_value_;
       }
-      
-      /** \brief Retrieve the last index
-       */
-      int 
-      index () const
-      {
-        return last_index_;
-      }
-      
-      size_t
-      size () const
-      {
-        return 1;
-      }
-      
+
       /** Add a new point or value. */
       void 
-      insert (int index_arg, const PointT &point_arg)
+      insert (const PointT &point_arg)
       {
         last_value_ = point_arg;
-        last_index_ = index_arg;
       }
       
-      virtual void 
+      void 
       reset ()
       {
         last_value_ = PointT ();
-        last_index_ = -1;
       }
       
     protected:
       PointT last_value_;
-      int last_index_;
     };
     
+
+    class LastIndexAccumulator
+    {
+    public:
+      LastIndexAccumulator ()
+      {
+        reset ();
+      }
+
+      /** \brief Retrieve the last point
+       */
+      void
+      value (int& index_arg) const
+      {
+        index_arg = last_index_;
+      }
+
+      /** Add a new point or value. */
+      void 
+      insert (int index_arg)
+      {
+        last_index_ = index_arg;
+      }
+      
+      void 
+      reset ()
+      {
+        last_index_ = -1;
+      }
+      
+    protected:
+      int last_index_;
+    };
+
     /** \brief The counter accumulator policy simply stores the number of values inserted into it */
-    template <typename PointT>
-    class CounterAccumulator : public NullAccumulator<PointT>
+    class CounterAccumulator
     {
     public:
       CounterAccumulator ()
       {
-      }
-      
-      ~CounterAccumulator ()
-      {
+        reset ();
       }
       
       size_t
@@ -162,13 +134,13 @@ namespace pcl
       }
       
       /** Add a new point or value. */
-      void 
-      insert (int, const PointT &)
+      void
+      insert ()
       {
         ++counter_;
       }
       
-      virtual void 
+      void 
       reset ()
       {
         counter_ = 0;
@@ -205,18 +177,14 @@ namespace pcl
      * point type. Of course, each of the field averages is computed only if
      * the point type has the corresponding field. */
     template <typename PointT>
-    class AveragingAccumulator : public NullAccumulator<PointT>
+    class AveragingAccumulator
     {
       
     public:
       
       AveragingAccumulator ()
-      : num_points_ (0)
       {
-      }
-      
-      ~AveragingAccumulator ()
-      {
+        reset ();
       }
       
       /** \brief Get the number of points that have been inserted */
@@ -239,7 +207,7 @@ namespace pcl
       
       /** Add a new point. */
       void 
-      insert (int, const PointT& point_arg)
+      insert (const PointT& point_arg)
       {
         ++num_points_;
         xyz_.add (point_arg);
@@ -266,16 +234,12 @@ namespace pcl
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     };
       
-    template <typename PointT>
-    class IndexVectorAccumulator : public NullAccumulator<PointT>
+    class IndexVectorAccumulator
     {
     public:
       IndexVectorAccumulator ()
       {
-      }
-      
-      ~IndexVectorAccumulator ()
-      {
+        reset ();
       }
       
       /** \brief Get the number of elements that have been inserted */
@@ -287,30 +251,22 @@ namespace pcl
           
       /** Add a new point. */
       void 
-      insert (int index_arg, const PointT&)
+      insert (int index_arg)
       {
         indices_.push_back (index_arg);
       }
       
-      virtual void 
+      void 
       reset ()
       {
         indices_.clear ();
-      }
-      
-      /** \brief Returns the indices vector
-       */
-      const std::vector<int>&
-      getPointIndicesVector () const
-      {
-        return indices_;
       }
       
       /** \brief Appends the indices vector to the input vector
         * \param[in] data_vector_arg Vector to append the indices to
         */
       void
-      getPointIndices (std::vector<int>& data_vector_arg) const
+      value (std::vector<int>& data_vector_arg) const
       {
         data_vector_arg.insert (data_vector_arg.end (), indices_.begin (), indices_.end ());
       }
@@ -318,6 +274,65 @@ namespace pcl
     protected:
       std::vector<int> indices_;
     };
+
+    template <typename AccumulatorT>
+    struct AccumulatorTraits
+    {
+      template <typename PointT>
+      static void insert (AccumulatorT&, int, const PointT&)
+      {
+        // generic version, do nothing
+      }
+    };
+
+    template <typename PointT>
+    struct AccumulatorTraits<LastPointAccumulator<PointT> >
+    {
+      static void insert (LastPointAccumulator<PointT>& acc, int, const PointT& point)
+      {
+        acc.insert (point);
+      }
+    };
+
+    template <>
+    struct AccumulatorTraits<LastIndexAccumulator>
+    {
+      template <typename PointT>
+      static void insert (LastIndexAccumulator& acc, int index, const PointT&)
+      {
+        acc.insert (index);
+      }
+    };
+
+    template <>
+    struct AccumulatorTraits<CounterAccumulator>
+    {
+      template <typename PointT>
+      static void insert (CounterAccumulator& acc, int, const PointT&)
+      {
+        acc.insert ();
+      }
+    };
+
+    template <>
+    struct AccumulatorTraits<IndexVectorAccumulator>
+    {
+      template <typename PointT>
+      static void insert (IndexVectorAccumulator& acc, int idx, const PointT&)
+      {
+        acc.insert (idx);
+      }
+    };
+
+    template <typename PointT>
+    struct AccumulatorTraits<AveragingAccumulator<PointT> >
+    {
+      static void insert (AveragingAccumulator<PointT>& acc, int, const PointT& point)
+      {
+        acc.insert (point);
+      }
+    };
+
   }
 }
 

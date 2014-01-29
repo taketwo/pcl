@@ -79,8 +79,8 @@ namespace pcl
       * \author Jeremie Papon (jpapon@gmail.com) */
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     template <typename PointT,
-              typename LeafContainerT = OctreeAdjacencyContainer<PointT>,
-              typename BranchContainerT = OctreeContainerEmpty>
+              typename LeafContainerT = OctreeContainerEmpty<OctreeAdjacencyData>,
+              typename BranchContainerT = OctreeContainerEmpty<> >
     class OctreePointCloudAdjacency : public OctreePointCloud<PointT, LeafContainerT, BranchContainerT>
     {
 

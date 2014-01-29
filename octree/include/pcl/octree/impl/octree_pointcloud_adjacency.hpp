@@ -112,8 +112,8 @@ pcl::octree::OctreePointCloudAdjacency<PointT, LeafContainerT, BranchContainerT>
   {
     leaf_container = delete_itr->second;
     //Remove pointer to it from all neighbors
-    typename std::set<LeafContainerT*>::iterator neighbor_itr = leaf_container->begin ();
-    typename std::set<LeafContainerT*>::iterator neighbor_end = leaf_container->end ();
+    typename std::set<LeafContainerT*>::iterator neighbor_itr = leaf_container->getOctreeData ().begin ();
+    typename std::set<LeafContainerT*>::iterator neighbor_end = leaf_container->getOctreeData ().end ();
     for ( ; neighbor_itr != neighbor_end; ++neighbor_itr)
     {
       //Don't delete self neighbor

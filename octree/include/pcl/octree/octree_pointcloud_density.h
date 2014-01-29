@@ -48,21 +48,19 @@ namespace pcl
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /** \brief Point Density class wrapper maintained for compatibility
      */
-    class OctreePointCloudDensityContainer : public OctreeLeafContainer<int, CounterAccumulator> 
+    template <typename OctreeDataT = EmptyData,
+              typename UserDataT = EmptyData>
+    class OctreePointCloudDensityContainer : public OctreeLeafContainer<OctreeDataT, CounterAccumulator, UserDataT> 
     {
-    public:
-      OctreePointCloudDensityContainer ():
-      OctreeLeafContainer<int, CounterAccumulator> ()
-      {   
-      }
-      
-      /** \brief Template function which drops the templated point parameter */
-      template <typename PointT>
-      void
-      insert (int index_arg, const PointT&)
-      {
-        OctreeLeafContainer<int, CounterAccumulator>::insert (index_arg, -1);
-      }
+
+        typedef OctreeLeafContainer<OctreeDataT, CounterAccumulator, UserDataT> Base;
+
+      public:
+
+        OctreePointCloudDensityContainer ()
+        : Base ()
+        {
+        }
       
     };
     
@@ -74,9 +72,12 @@ namespace pcl
       * \ingroup octree
       * \author Julius Kammerl (julius@kammerl.de)
       */
-    template<typename PointT, typename LeafContainerT = OctreePointCloudDensityContainer, typename BranchContainerT = OctreeContainerEmpty >
+    template<typename PointT,
+             typename LeafContainerT = OctreePointCloudDensityContainer<>,
+             typename BranchContainerT = OctreeContainerEmpty<> >
     class OctreePointCloudDensity : public OctreePointCloud<PointT, LeafContainerT, BranchContainerT>
     {
+
       public:
 
       /** \brief OctreePointCloudDensity class constructor.
@@ -102,10 +103,10 @@ namespace pcl
         {
           unsigned int point_count = 0;
 
-          OctreePointCloudDensityContainer* leaf = this->findLeafAtPoint (point_arg);
+          LeafContainerT* leaf = this->findLeafAtPoint (point_arg);
 
           if (leaf)
-            point_count = leaf->size ();
+            point_count = leaf->getLeafData().size ();
 
           return (point_count);
         }

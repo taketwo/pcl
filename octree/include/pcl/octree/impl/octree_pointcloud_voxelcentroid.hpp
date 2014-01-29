@@ -115,7 +115,7 @@ pcl::octree::OctreePointCloudVoxelCentroid<PointT, LeafContainerT, BranchContain
 
           LeafNode* container = static_cast<LeafNode*> (child_node);
 
-          container->getContainer().value (new_centroid);
+          container->getContainer().getLeafData ().value (new_centroid);
 
           voxel_centroid_list_arg.push_back (new_centroid);
           break;
