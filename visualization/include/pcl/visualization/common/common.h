@@ -41,6 +41,8 @@
 #pragma GCC system_header
 #endif
 
+#include <iostream>
+
 #include <pcl/pcl_macros.h>
 #include <pcl/visualization/eigen.h>
 #include <vtkMatrix4x4.h>
@@ -224,6 +226,9 @@ namespace pcl
         template<typename PointT> void 
         cvtWindowCoordinates (const PointT& pt, Eigen::Vector4d& window_cord, const Eigen::Matrix4d& composite_mat) const;
     };
+
+    PCL_EXPORTS std::ostream& operator << (std::ostream& os, const Camera& c);
+
   }
 }
 

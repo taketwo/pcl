@@ -561,3 +561,26 @@ pcl::visualization::Camera::computeProjectionMatrix (Eigen::Matrix4d& proj) cons
 	proj(3,2) = -1.0;
 	proj(2,3) = (-temp1 * clip[1]) * temp4;
 }
+
+namespace pcl
+{
+
+namespace visualization
+{
+
+std::ostream&
+operator << (std::ostream& os, const Camera& c)
+{
+  os << c.clip[0] << "," << c.clip[1] << "/"
+     << c.focal[0] << "," << c.focal[1] << "," << c.focal[2] << "/"
+     << c.pos[0] << "," << c.pos[1] << "," << c.pos[2] << "/"
+     << c.view[0] << "," << c.view[1]  << "," << c.view[2] << "/"
+     << c.fovy << "/"
+     << c.window_size[0] << "," << c.window_size[1] << "/"
+     << c.window_pos[0] << "," << c.window_pos[1];
+  return (os);
+}
+
+}
+
+}

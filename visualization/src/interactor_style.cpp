@@ -143,18 +143,9 @@ pcl::visualization::PCLVisualizerInteractorStyle::saveCameraParameters (const st
     return (false);
   }
 
-  vtkSmartPointer<vtkCamera> cam = Interactor->GetRenderWindow ()->GetRenderers ()->GetFirstRenderer ()->GetActiveCamera ();
-  double clip[2], focal[3], pos[3], view[3];
-  cam->GetClippingRange (clip);
-  cam->GetFocalPoint (focal);
-  cam->GetPosition (pos);
-  cam->GetViewUp (view);
-  int *win_pos = Interactor->GetRenderWindow ()->GetPosition ();
-  int *win_size = Interactor->GetRenderWindow ()->GetSize ();
-  ofs_cam << clip[0]  << "," << clip[1]  << "/" << focal[0] << "," << focal[1] << "," << focal[2] << "/" <<
-             pos[0]   << "," << pos[1]   << "," << pos[2]   << "/" << view[0]  << "," << view[1]  << "," << view[2] << "/" <<
-             cam->GetViewAngle () / 180.0 * M_PI  << "/" << win_size[0] << "," << win_size[1] << "/" << win_pos[0] << "," << win_pos[1]
-          << endl;
+  Camera cam;
+  getCameraParameters (cam);
+  ofs_cam << cam << std::endl;
   ofs_cam.close ();
 
   return (true);
