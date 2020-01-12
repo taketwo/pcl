@@ -37,7 +37,6 @@ Software License Agreement (BSD License)
 
 """
 
-import argparse
 from argparse import ArgumentParser
 from collections import defaultdict
 import getpass
@@ -49,6 +48,7 @@ import subprocess
 import sys
 
 import requests
+from tqdm import tqdm
 
 
 def find_pcl_folder():
@@ -58,9 +58,10 @@ def find_pcl_folder():
 
 
 def find_pr_list(start: str, end: str):
-    """Returns all PR ids from a certain commit range. Inspired in
-    http://joey.aghion.com/find-the-github-pull-request-for-a-commit/
-    https://stackoverflow.com/questions/36433572/how-does-ancestry-path-work-with-git-log#36437843
+    """
+    Returns all PR ids from a certain commit range. Inspired in:
+      * http://joey.aghion.com/find-the-github-pull-request-for-a-commit/
+      * https://stackoverflow.com/a/36437843/1525865
     """
 
     # Let git generate the proper pr history
@@ -70,8 +71,8 @@ def find_pr_list(start: str, end: str):
     pr_commits = output.stdout.split(b"\n")
 
     # Fetch ids for all merge requests from PRS
-    merge_re = re.compile("\S+ Merge pull request #(\d+) from \S+")
-    squash_re = re.compile("\(#(\d+)\)")
+    merge_re = re.compile(r"\S+ Merge pull request #(\d+) from \S+")
+    squash_re = re.compile(r"\(#(\d+)\)")
 
     ids = []
     for pr in pr_commits:
@@ -102,32 +103,25 @@ def fetch_pr_info(pr_ids, auth):
     prs_url = "https://api.github.com/repos/PointCloudLibrary/pcl/pulls/"
     pr_info = []
 
-    sys.stdout.write("Fetching PR Info: {}%".format(0))
-    sys.stdout.flush()
+    with tqdm(desc="Fetching PR info", total=len(pr_ids)) as t:
+        for pr_id in pr_ids:
+            t.set_postfix(PR=pr_id)
+            t.update()
 
-    for i, pr_id in enumerate(pr_ids):
+            # Fetch GitHub info
+            response = requests.get(prs_url + str(pr_id), auth=auth)
+            data = response.json()
+            if response.status_code != 200:
+                t.close()
+                sys.exit(
+                    "Failed to fetch info for PR {}. Server response: '{}'".format(
+                        pr_id, data["message"]
+                    )
+                )
 
-        # Fetch GitHub info
-        response = requests.get(prs_url + str(pr_id), auth=auth)
-        data = response.json()
-
-        if response.status_code != 200:
-            print(
-                "\nError: Failed to fetch PR info. Server reported '"
-                + data["message"]
-                + "'",
-                file=sys.stderr,
+            pr_info.append(
+                {"id": pr_id, "title": data["title"], "labels": data["labels"]}
             )
-            exit(code=1)
-
-        d = {"id": pr_id, "title": data["title"], "labels": data["labels"]}
-        pr_info.append(d)
-
-        # import pdb; pdb.set_trace()
-        sys.stdout.write(
-            "\rFetching PR Info: {:0.2f}%".format(100 * (i + 1) / len(pr_ids))
-        )
-        sys.stdout.flush()
 
     print("")
     return pr_info
@@ -138,7 +132,7 @@ def extract_version(tag):
     If the tag does not correspond to a suitable version tag, the original tag
     is returned
     """
-    version_re = re.compile("pcl-\S+")
+    version_re = re.compile(r"pcl-\S+")
     res = version_re.fullmatch(tag)
 
     # Not a usual version tag
@@ -273,9 +267,9 @@ def generate_text_content(tag, pr_info):
     # Map each PR into the approriate module and changes
     modules = defaultdict(list)
     changes = defaultdict(list)
-    module_re = re.compile("module: \S+")
-    changes_re = re.compile("changes: ")
-    feature_re = re.compile("new feature")
+    module_re = re.compile(r"module: \S+")
+    changes_re = re.compile(r"changes: ")
+    feature_re = re.compile(r"new feature")
 
     for pr in pr_info:
 
@@ -362,8 +356,8 @@ def generate_text_content(tag, pr_info):
 def parse_arguments():
 
     parser = ArgumentParser(
-        description="Generate a change log between two "
-        "revisions.\n\nCheck https://github.com/PointCloudLibrary/pcl/wiki/Preparing-Releases#creating-the-change-log "
+        description="Generate a change log between two revisions.\n\n"
+        "Check https://github.com/PointCloudLibrary/pcl/wiki/Preparing-Releases#creating-the-change-log "
         "for some additional examples on how to use the tool."
     )
     parser.add_argument(
@@ -413,10 +407,6 @@ def parse_arguments():
 
     return args
 
-
-##
-##  'main'
-##
 
 FOLDER = find_pcl_folder()
 
