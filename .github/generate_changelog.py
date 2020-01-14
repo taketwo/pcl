@@ -40,8 +40,222 @@ import sys
 import argparse
 from collections import defaultdict
 import re
+import pickle
 
 import requests
+
+
+SKIP_LIST = [
+    3415,
+    3381,
+    3358,
+    3324,
+    3201,
+    2940,
+    2935,
+    2928,
+    2693,
+    2681,
+    2659,
+    3520,
+    3083,
+    3357,
+    3103,
+    3371,
+    3167,
+    2783,
+    2631,
+    2650,
+    2695,
+    3156,
+    3037,
+    2914,
+    2815,
+    3359,
+    2820,
+    2773,
+    3110,
+    3493,
+    3172
+]
+
+GROUPS = [
+    (
+        "Prefer lambdas over binds",
+        [3189, 3178, 3199, 3136, 3192, 3209, 3231, 3243, 3173, 3171, 3254],
+        ["modernization"],
+    ),
+    (
+        "Prefer range-based for loops",
+        [
+            2812,
+            2834,
+            2835,
+            2836,
+            2838,
+            2839,
+            2840,
+            2841,
+            2842,
+            2843,
+            2844,
+            2845,
+            2846,
+            2847,
+            2848,
+            2849,
+            2850,
+            2851,
+            2853,
+            2854,
+            2855,
+            2856,
+            2857,
+            2858,
+            2859,
+            2860,
+            3396,
+            2837,
+            2887,
+        ],
+        ["modernization"],
+    ),
+    (
+        "Prefer `nullptr` over 0 and `NULL`",
+        [
+            3004,
+            3005,
+            3006,
+            3007,
+            3008,
+            3009,
+            3010,
+            3011,
+            3012,
+            3013,
+            3014,
+            3015,
+            3016,
+            3017,
+            3018,
+            3019,
+            3020,
+            3021,
+            3022,
+            3023,
+            3024,
+            3025,
+            3026,
+            3027,
+            3028,
+            3029,
+        ],
+        ["modernization"],
+    ),
+    ("Migrate to `std::chrono`", [2913, 2919, 3318], ["modernization"]),
+    (
+        "Migrate from `boost::thread` to `std::thread`",
+        [3060, 3094],
+        ["modernization", "changes: breaks ABI"],
+    ),
+    (
+        "Migrate `mutex`, `lock` and `csv` to modernization",
+        [3078, 3074, 3068, 3063, 3086, 3084, 3093, 3091, 3088, 3100],
+        ["modernization"],
+    ),
+    (
+        "Prefer `using` over `typedef`",
+        [
+            3112,
+            3113,
+            3115,
+            3117,
+            3118,
+            3121,
+            3122,
+            3123,
+            3124,
+            3125,
+            3129,
+            3130,
+            3132,
+            3134,
+            3137,
+            3138,
+            3139,
+            3144,
+        ],
+        ["modernization"],
+    ),
+    (
+        "Prefer `std` math functions over C functions",
+        [3287, 3282, 3280, 3270, 3258, 3257, 3256, 3255, 3271, 3087, 3236, 3272],
+        ["modernization"],
+    ),
+    (
+        "Prefer using `Ptr` typedefs and migrate to `std` smart pointers in non-API code",
+        [3061, 3141, 3217, 3474, 3482, 3486, 3489, 3497, 2929, 2823, 2821, 2804],
+        ["modernization", "changes: breaks ABI"],
+    ),
+    (
+        "Migrate to `std` random number generators",
+        [2956, 3069, 2962],
+        ["modernization", "changes: breaks ABI"],
+    ),
+    (
+        "Deprecate `pcl_isnan`, `pcl_isfinite`, and `pcl_isinf` in favor of `std` methods",
+        [2798, 3457],
+        ["modernization", "changes: deprecation"],
+    ),
+    (
+        "Add explicit `std::` prefix to standard types/functions",
+        [3328, 3327, 3326, 3265],
+        ["modernization"],
+    ),
+    (
+        "Remove `else` after `return` statement",
+        [3186, 3185, 3184, 3182, 3180, 3181, 3183],
+        ["modernization"],
+    ),
+    ("Remove redundant `typename` keyword", [2927, 2897, 2896], ["modernization"]),
+    (
+        "Prefer `#pragma once` over `#ifndef` include guards",
+        [2707, 2617],
+        ["modernization"],
+    ),
+    (
+        "Apply clang-format to white-listed modules",
+        [3416, 3393, 3363, 3356, 3344, 3343],
+        ["modernization"],
+    ),
+    (
+        "Modernize FLANN finder script",
+        [3317, 3220, 3202, 3157, 2910, 2905, 2861, 2740],
+        ["module: cmake"],
+    ),
+    ("Remove default constructors/destructors", [3440, 3454], ["modernization"]),
+    (
+        "Fix various compiler warnings",
+        [2778, 2775, 2782, 2898, 2907, 3342, 3409, 3377, 3208, 3375, 3372, 3385, 2781, 3075, 3001, 2665],
+        ["modernization"],
+    ),
+    (
+        "Restructure and add functionality to filters templated on `PCLPointCloud2`",
+        [3500, 3483],
+        ["module: filters", "changes: breaks ABI", "changes: deprecation"],
+    ),
+]
+
+
+def group_prs(pr_info):
+    grouped = []
+    for g in GROUPS:
+        grouped += g[1]
+    new_pr_info = [pr for pr in pr_info if pr["id"] not in grouped]
+    for title, prs, label in GROUPS:
+        labels = [{"name": l} for l in label]
+        new_pr_info.append({"id": prs, "title": title, "labels": labels})
+    return new_pr_info
 
 
 def fetch(start, end):
@@ -54,7 +268,7 @@ def fetch(start, end):
     page = 1
     total_count = 1  # for the first iteration assume that total is 1
     while len(pr_info) < total_count:
-        response = requests.get(url + "&page=" + str(page))
+        response = requests.get(url + "&page=" + str(page) + "&per_page=100")
         data = response.json()
         if response.status_code != 200:
             sys.exit(
@@ -62,7 +276,7 @@ def fetch(start, end):
             )
         total_count = data["total_count"]
         for item in data["items"]:
-            print(item["number"], item["title"], [n["name"] for n in item["labels"]])
+            #  print(item["number"], item["title"], [n["name"] for n in item["labels"]])
             pr_info.append(
                 {"id": item["number"], "title": item["title"], "labels": item["labels"]}
             )
@@ -70,9 +284,39 @@ def fetch(start, end):
     return pr_info
 
 
+def make_pr_bullet_point(pr, prefix):
+    if isinstance(pr["id"], list):
+        ids = pr["id"]
+    else:
+        ids = [pr["id"]]
+    refs = ", ".join(
+        [
+            "[#{0}](https://github.com/PointCloudLibrary/pcl/pull/{0})".format(i)
+            for i in sorted(ids)
+        ]
+    )
+    return "* " + prefix + pr["title"] + " [" + refs + "]"
+
+
+def extract_version(tag):
+    """Finds the corresponding version from a provided tag.
+    If the tag does not correspond to a suitable version tag, the original tag
+    is returned
+    """
+    version_re = re.compile(r"pcl-\S+")
+    res = version_re.fullmatch(tag)
+
+    # Not a usual version tag
+    if not res:
+        return tag
+
+    return tag[4:]
+
+
 def generate_text_content(tag, pr_info):
 
     module_order = (
+        "modernization",
         None,
         "cmake",
         "2d",
@@ -108,6 +352,7 @@ def generate_text_content(tag, pr_info):
     )
 
     module_titles = {
+        "modernization": "Migration to C++14 and code modernization",
         None: "Uncategorized",
         "2d": "libpcl_2d",
         "apps": "PCL Apps",
@@ -119,6 +364,7 @@ def generate_text_content(tag, pr_info):
         "examples": "PCL Examples",
         "features": "libpcl_features",
         "filters": "libpcl_filters",
+        "geometry": "libpcl_geometry",
         "gpu": "libpcl_gpu",
         "io": "libpcl_io",
         "kdtree": "libpcl_kdtree",
@@ -141,7 +387,14 @@ def generate_text_content(tag, pr_info):
         "visualization": "libpcl_visualization",
     }
 
-    changes_order = ("new-feature", "deprecation", "removal", "behavior", "api", "abi")
+    changes_order = (
+        "new-feature",
+        "deprecation",
+        "removal",
+        "behavior",
+        "api",
+        "abi",
+    )
 
     changes_titles = {
         "new-feature": "New Features",
@@ -173,10 +426,11 @@ def generate_text_content(tag, pr_info):
     clog = []
 
     # Infer version from tag
+    #  tag = "pcl-1.9.1"
     #  version = extract_version(tag)
 
     # Find the commit date for writting the Title
-    cmd = ("git log -1 --format=%ai " + tag).split()
+    #  cmd = ("git log -1 --format=%ai " + tag).split()
     #  output = subprocess.run(cmd, cwd=FOLDER, stdout=subprocess.PIPE)
     #  date = output.stdout.split()[0].decode()
     #  tokens = date.split("-")
@@ -198,8 +452,12 @@ def generate_text_content(tag, pr_info):
     module_re = re.compile(r"module: \S+")
     changes_re = re.compile(r"changes: ")
     feature_re = re.compile(r"new feature")
+    cpp14_re = re.compile(r"modernization")
 
     for pr in pr_info:
+
+        if pr["id"] in SKIP_LIST:
+            continue
 
         pr["modules"] = []
         pr["changes"] = []
@@ -218,6 +476,10 @@ def generate_text_content(tag, pr_info):
             elif feature_re.fullmatch(label["name"]):
                 pr["changes"].append("new-feature")
                 changes["new-feature"].append(pr)
+
+            elif cpp14_re.fullmatch(label["name"]):
+                pr["modules"].append("modernization")
+                modules["modernization"].append(pr)
 
         # No labels defaults to section None
         if not pr["modules"]:
@@ -239,17 +501,7 @@ def generate_text_content(tag, pr_info):
             prefix = "".join(["[" + k + "]" for k in pr["modules"]])
             if prefix:
                 prefix = "**" + prefix + "** "
-            clog += [
-                "* "
-                + prefix
-                + pr["title"]
-                + " [[#"
-                + str(pr["id"])
-                + "]]"
-                + "(https://github.com/PointCloudLibrary/pcl/pull/"
-                + str(pr["id"])
-                + ")"
-            ]
+            clog += [make_pr_bullet_point(pr, prefix)]
 
     # Traverse Modules and generate each section's content
     clog += ["\n### `Modules:`"]
@@ -266,17 +518,7 @@ def generate_text_content(tag, pr_info):
             prefix = "".join(["[" + k + "]" for k in pr["changes"]])
             if prefix:
                 prefix = "**" + prefix + "** "
-            clog += [
-                "* "
-                + prefix
-                + pr["title"]
-                + " [[#"
-                + str(pr["id"])
-                + "]]"
-                + "(https://github.com/PointCloudLibrary/pcl/pull/"
-                + str(pr["id"])
-                + ")"
-            ]
+            clog += [make_pr_bullet_point(pr, prefix)]
 
     return clog
 
@@ -302,7 +544,13 @@ if __name__ == "__main__":
         period_begin = None
         period_end = None
 
-    pr_info = fetch(period_begin, period_end)
+    if 1:
+        pr_info = fetch(period_begin, period_end)
+        pickle.dump(pr_info, open("dump", "wb"))
+    else:
+        pr_info = pickle.load(open("dump", "rb"))
+
+    pr_info = group_prs(pr_info)
 
     clog = generate_text_content(period_end, pr_info=pr_info)
     print("\n".join(clog))
