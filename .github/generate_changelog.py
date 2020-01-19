@@ -76,7 +76,18 @@ SKIP_LIST = [
     2773,
     3110,
     3493,
-    3172
+    3172,
+    3364,
+    3248,
+    3352,
+    3473,
+    2976,
+    3092,
+    2984,
+    2971,
+    2852,
+    3539,
+    2759
 ]
 
 GROUPS = [
@@ -194,7 +205,7 @@ GROUPS = [
     ),
     (
         "Prefer using `Ptr` typedefs and migrate to `std` smart pointers in non-API code",
-        [3061, 3141, 3217, 3474, 3482, 3486, 3489, 3497, 2929, 2823, 2821, 2804],
+        [3061, 3141, 3217, 3474, 3482, 3486, 3489, 3497, 2929, 2823, 2821, 2804, 3142],
         ["modernization", "changes: breaks ABI"],
     ),
     (
@@ -209,7 +220,7 @@ GROUPS = [
     ),
     (
         "Add explicit `std::` prefix to standard types/functions",
-        [3328, 3327, 3326, 3265],
+        [3328, 3327, 3326, 3265, 3434, 3426, 3354],
         ["modernization"],
     ),
     (
@@ -236,7 +247,40 @@ GROUPS = [
     ("Remove default constructors/destructors", [3440, 3454], ["modernization"]),
     (
         "Fix various compiler warnings",
-        [2778, 2775, 2782, 2898, 2907, 3342, 3409, 3377, 3208, 3375, 3372, 3385, 2781, 3075, 3001, 2665, 3509, 3507, 3425],
+        [
+            2778,
+            2775,
+            2782,
+            2898,
+            2907,
+            3342,
+            3409,
+            3377,
+            3208,
+            3375,
+            3372,
+            3385,
+            2781,
+            3075,
+            3001,
+            2665,
+            3509,
+            3507,
+            3425,
+            3555,
+            3554,
+            3427,
+            3366,
+            3076,
+            2822,
+            3153,
+            3348,
+            3214,
+            3388,
+            3155,
+            3345,
+            3212
+        ],
         ["modernization"],
     ),
     (
@@ -244,6 +288,8 @@ GROUPS = [
         [3500, 3483],
         ["module: filters", "changes: breaks ABI", "changes: deprecation"],
     ),
+    ("Prefer `std::size_t` in loops", [3556, 3550], ["modernization"],),
+    ("Fix callback signatures in some grabbers", [3225, 3216], ["module: io"],),
 ]
 
 
@@ -410,7 +456,7 @@ def generate_text_content(tag, pr_info):
         "deprecation": "Deprecated code scheduled to be removed after two minor releases.",
         "removal": "Removal of deprecated code.",
         "behavior": "Changes in the expected default behavior.",
-        "api": "Changes to the API which didn't went through the proper deprecation and removal cycle.",
+        "api": "Changes to the API which didn't go through the proper deprecation and removal cycle.",
         "abi": "Changes that cause ABI incompatibility but are still API compatible.",
     }
 
@@ -544,7 +590,7 @@ if __name__ == "__main__":
         period_begin = None
         period_end = None
 
-    if 1:
+    if 0:
         pr_info = fetch(period_begin, period_end)
         pickle.dump(pr_info, open("dump", "wb"))
     else:
